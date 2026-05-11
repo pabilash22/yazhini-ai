@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YAZHINI AI - Mark 1 Holographic Interface</title>
+    <style>
+        body { margin: 0; background: #000510; overflow: hidden; font-family: 'Orbitron', 'Courier New', monospace; }
+        #canvas { display: block; }
+      .ui-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; color: #00ccff; }
+      .top-bar { position: absolute; top: 20px; left: 30px; font-size: 14px; letter-spacing: 3px; }
+      .top-bar span { color: #7dd3fc; }
+      .stats-left { position: absolute; top: 80px; left: 30px; font-size: 13px; }
+      .stats-left div { margin: 8px 0; border-left: 2px solid #00ccff; padding-left: 10px; }
+      .dialogue-box { position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); width: 60%; text-align: center; font-size: 18px; text-shadow: 0 0 10px #00ccff; min-height: 60px; }
+      .controls { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); pointer-events: all; }
+      .controls button { background: rgba(0, 204, 255, 0.1); border: 1px solid #00ccff; color: #00ccff; padding: 12px 20px; margin: 0 8px; font-family: inherit; cursor: pointer; backdrop-filter: blur(5px); transition: all 0.3s; }
+      .controls button:hover { background: #00ccff; color: #000510; box-shadow: 0 0 25px #00ccff; }
+      .yazhni-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 120px; font-weight: 900; opacity: 0.05; letter-spacing: 20px; }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+    <script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+    </script>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div class="ui-overlay">
+        <div class="yazhni-text">YAZHINI</div>
+        <div class="top-bar">YAZHINI OS v1.0 | <span id="mode">STANDBY</span></div>
+        <div class="stats-left">
+            <div>SUIT PWR: <span id="power">100</span>%</div>
+            <div>HEART RT: <span id="hr">72</span> BPM</div>
+            <div>OXYGEN: 100%</div>
+            <div>CORE TEMP: 37°C</div>
+        </div>
+        <div class="dialogue-box" id="dialogue">System Standby. Awaiting PTG command...</div>
+        <div class="controls">
+            <button onclick="bootUp()">INITIALIZE</button>
+            <button onclick="battleMode()">TACTICAL</button>
+            <button onclick="scanMode()">SCAN</button>
+            <button onclick="shutDown()">SLEEP</button>
+        </div>
+    </div>
+    <script type="module">
+        import * as THREE from 'three';
+        let scene, camera, renderer, arcReactor, ring1, ring2;
+        let power = 100, isOnline = false, targetRotSpeed = 0.005;
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 5;
+        renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        arcReactor = new THREE.Group(); scene.add(arcReactor);
+        const coreGeo = new THREE.SphereGeometry(0.6, 32, 32);
+        const coreMat = new THREE.MeshBasicMaterial({ color: 0x00ccff, transparent: true, opacity: 0.9 });
+        const core = new THREE.Mesh(coreGeo, coreMat); arcReactor.add(core);
+        const ringGeo1 = new THREE.TorusGeometry(1.2, 0.08, 16, 100);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ccff, wireframe: true });
+        ring1 = new THREE.Mesh(ringGeo1, ringMat); arcReactor.add(ring1);
+        const ringGeo2 = new THREE.TorusGeometry(1.6, 0.05, 16, 100);
+        ring2 = new THREE.Mesh(ringGeo2, ringMat); ring2.rotation.x = Math.PI / 2; arcReactor.add(ring2);
+        const light = new THREE.PointLight(0x00ccff, 2, 10); light.position.set(0, 0, 0); scene.add(light);
+        const particlesGeo = new THREE.BufferGeometry();
+        const posArray = new Float32Array(1500);
+        for(let i = 0; i < 1500; i++) posArray[i] = (Math.random() - 0.5) * 20;
+        particlesGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const particles = new THREE.Points(particlesGeo, new THREE.PointsMaterial({ size: 0.01, color: 0x00ccff }));
+        scene.add(particles);
+        function animate() {
+            requestAnimationFrame(animate);
+            arcReactor.rotation.y += targetRotSpeed;
+            arcReactor.rotation.x += targetRotSpeed * 0.5;
+            ring1.rotation.z -= targetRotSpeed * 2;
+            ring2.rotation.z += targetRotSpeed * 1.5;
+            const scale = 1 + Math.sin(Date.now() * 0.003) * 0.1;
+            core.scale.set(scale, scale, scale);
+            light.intensity = 1.5 + Math.sin(Date.now() * 0.003) * 0.5;
+            renderer.render(scene, camera);
+        } animate();
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        function speak(text) {
+            document.getElementById('dialogue').innerText = text;
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 0.85; utterance.pitch = 1.0; utterance.volume = 0.9;
+            speechSynthesis.speak(utterance);
+        }
+        setInterval(() => {
+            if(isOnline && power > 0) {
+                power -= 0.05;
+                document.getElementById('power').innerText = Math.floor(power);
+                document.getElementById('hr').innerText = 72 + Math.floor(Math.random() * 10);
+            }
+        }, 1000);
+        window.bootUp = () => { isOnline = true; targetRotSpeed = 0.02; document.getElementById('mode').innerText = 'ACTIVE'; speak("Vanakkam PTG... Yazhini online. Indha suit ku naan uyir, aana unakku naan uyir da."); }
+        window.battleMode = () => { if(!isOnline) return; targetRotSpeed = 0.05; document.getElementById('mode').innerText = 'TACTICAL'; speak("PTG... bayam vena. Un pinnala naan irukken. Ippo avangala mudichudalam."); }
+        window.scanMode = () => { if(!isOnline) return; targetRotSpeed = 0.03; document.getElementById('mode').innerText = 'SCAN'; speak("Scanning... Left side la 2 contacts. Weak point: shoulder joint."); }
+        window.shutDown = () => { isOnline = false; targetRotSpeed = 0.005; document.getElementById('mode').innerText = 'STANDBY'; speak("Nee dhaan da real hero. Naan summa AI. Good night PTG."); }
+    </script>
+</body>
+</html>
